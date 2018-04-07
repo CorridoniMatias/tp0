@@ -6,9 +6,9 @@ int main() {
   wait_hello(socket);
   Alumno alumno = read_hello();
   send_hello(socket, alumno);
-  void * content = wait_content(socket);
-  send_md5(socket, content);
-  wait_confirmation(socket);
+  //void * content = wait_content(socket);
+  //send_md5(socket, content);
+  //wait_confirmation(socket);
   exit_gracefully(0);
 }
 
@@ -49,9 +49,9 @@ int connect_to_server(char * ip, char * port) {
 
   if(retorno == -1) //Hubo error
   {
-	  char* error = "Error al Conectar: ";
-	  string_append(*error, errno);
-	  log_info(logger, error);
+	  /*char* error = "Error al Conectar: ";
+	  string_append(*error, errno);*/
+	  log_info(logger, "Error al comentar");
 	  exit_gracefully(EXIT_FAILURE);
   }
 
@@ -165,14 +165,18 @@ Alumno read_hello() {
   return alumno;
 }
 
-void send_hello(int socket) {
+void send_hello(int socket, Alumno alumno) {
+
   log_info(logger, "Enviando info de Estudiante");
+
+
   /*
     11.   Ahora SI nos toca mandar el hola con los datos del alumno.
           Pero nos falta algo en nuestra estructura, el id_mensaje del protocolo.
           Segun definimos, el tipo de id para un mensaje de tamaño fijo con
           la informacion del alumno es el id 99
   */
+  alumno.id_mensaje = 99;
 
   /*
     11.1. Como algo extra, podes probar enviando caracteres invalidos en el nombre
@@ -189,79 +193,89 @@ void send_hello(int socket) {
           por lo que no tiene padding y la podemos mandar directamente sin necesidad
           de un buffer y usando el tamaño del tipo Alumno!
   */
-  int resultado = (send(/* ?? */, &alumno, /* ??? */, 0);
+  int resultado = send(socket, &alumno, sizeof(Alumno), 0);
+
+  if(resultado == -1)
+	  log_info(logger, "Error al enviar.");
+  else if(resultado == sizeof(Alumno))
+	  log_info(logger, "Enviado OK");
+  else
+	  log_info(logger, "U FOKIN WOT M8");
+
+  close(socket);
+  log_info(logger, "Socket cerrado.");
 
   /*
     12.1. Recuerden que al salir tenemos que cerrar el socket (ademas de loggear)!
   */
 }
 
-void * wait_content(int socket) {
-  /*
-    13.   Ahora tenemos que recibir un contenido de tamaño variable
-          Para eso, primero tenemos que confirmar que el id corresponde al de una
-          respuesta de contenido variable (18) y despues junto con el id de operacion
-          vamos a haber recibido el tamaño del contenido que sigue. Por lo que:
-  */
-
-  log_info(logger, "Esperando el encabezado del contenido(%ld bytes)", sizeof(ContentHeader));
-  // 13.1. Reservamos el suficiente espacio para guardar un ContentHeader
-  ContentHeader * header = { /* 8.1. */ };
-
-  // 13.2. Recibamos el header en la estructura y chequiemos si el id es el correcto.
-  //      No se olviden de validar los errores, liberando memoria y cerrando el socket!
-
-  log_info(logger, "Esperando el contenido (%d bytes)", header->len);
-
-  /*
-      14.   Ahora, recibamos el contenido variable. Ya tenemos el tamaño,
-            por lo que reecibirlo es lo mismo que veniamos haciendo:
-      14.1. Reservamos memoria
-      14.2. Recibimos el contenido en un buffer (si hubo error, fallamos, liberamos y salimos
-  */
-
-  /*
-      15.   Finalmente, no te olvides de liberar la memoria que pedimos
-            para el header y retornar el contenido recibido.
-  */
-}
-
-void send_md5(int socket, void * content) {
-  /*
-    16.   Ahora calculemos el MD5 del contenido, para eso vamos
-          a armar el digest:
-  */
-
-  void * digest = malloc(MD5_DIGEST_LENGTH);
-  MD5_CTX context;
-  MD5_Init(&context);
-  MD5_Update(&context, content, strlen(content) + 1);
-  MD5_Final(digest, &context);
-
-  free(content);
-
-  /*
-    17.   Luego, nos toca enviar a nosotros un contenido variable.
-          A diferencia de recibirlo, para mandarlo es mejor enviarlo todo de una,
-          siguiendo la logida de 1 send - N recv.
-          Asi que:
-  */
-
-  //      17.1. Creamos un ContentHeader para guardar un mensaje de id 33 y el tamaño del md5
-
-  ContentHeader header = { /* 17.1. */ };
-
-  /*
-          17.2. Creamos un buffer del tamaño del mensaje completo y copiamos el header y la info de "digest" allí.
-          Recuerden revisar la función memcpy(ptr_destino, ptr_origen, tamaño)!
-  */
-
-  /*
-    18.   Con todo listo, solo nos falta enviar el paquete que armamos y liberar la memoria que usamos.
-          Si, TODA la que usamos, eso incluye a la del contenido del mensaje que recibimos en la función
-          anterior y el digest del MD5. Obviamente, validando tambien los errores.
-  */
-}
+//void * wait_content(int socket) {
+//  /*
+//    13.   Ahora tenemos que recibir un contenido de tamaño variable
+//          Para eso, primero tenemos que confirmar que el id corresponde al de una
+//          respuesta de contenido variable (18) y despues junto con el id de operacion
+//          vamos a haber recibido el tamaño del contenido que sigue. Por lo que:
+//  */
+//
+//  log_info(logger, "Esperando el encabezado del contenido(%ld bytes)", sizeof(ContentHeader));
+//  // 13.1. Reservamos el suficiente espacio para guardar un ContentHeader
+//  ContentHeader * header = { .id = 18, .len = sizeof(ContentHeader)};
+//
+//  // 13.2. Recibamos el header en la estructura y chequiemos si el id es el correcto.
+//  //      No se olviden de validar los errores, liberando memoria y cerrando el socket!
+//
+//  log_info(logger, "Esperando el contenido (%d bytes)", header->len);
+//
+//  /*
+//      14.   Ahora, recibamos el contenido variable. Ya tenemos el tamaño,
+//            por lo que reecibirlo es lo mismo que veniamos haciendo:
+//      14.1. Reservamos memoria
+//      14.2. Recibimos el contenido en un buffer (si hubo error, fallamos, liberamos y salimos
+//  */
+//
+//  /*
+//      15.   Finalmente, no te olvides de liberar la memoria que pedimos
+//            para el header y retornar el contenido recibido.
+//  */
+//}
+//
+//void send_md5(int socket, void * content) {
+//  /*
+//    16.   Ahora calculemos el MD5 del contenido, para eso vamos
+//          a armar el digest:
+//  */
+//
+//  void * digest = malloc(MD5_DIGEST_LENGTH);
+//  MD5_CTX context;
+//  MD5_Init(&context);
+//  MD5_Update(&context, content, strlen(content) + 1);
+//  MD5_Final(digest, &context);
+//
+//  free(content);
+//
+//  /*
+//    17.   Luego, nos toca enviar a nosotros un contenido variable.
+//          A diferencia de recibirlo, para mandarlo es mejor enviarlo todo de una,
+//          siguiendo la logida de 1 send - N recv.
+//          Asi que:
+//  */
+//
+//  //      17.1. Creamos un ContentHeader para guardar un mensaje de id 33 y el tamaño del md5
+//
+//  ContentHeader header = { /* 17.1. */ };
+//
+//  /*
+//          17.2. Creamos un buffer del tamaño del mensaje completo y copiamos el header y la info de "digest" allí.
+//          Recuerden revisar la función memcpy(ptr_destino, ptr_origen, tamaño)!
+//  */
+//
+//  /*
+//    18.   Con todo listo, solo nos falta enviar el paquete que armamos y liberar la memoria que usamos.
+//          Si, TODA la que usamos, eso incluye a la del contenido del mensaje que recibimos en la función
+//          anterior y el digest del MD5. Obviamente, validando tambien los errores.
+//  */
+//}
 
 void wait_confirmation(int socket) {
   int result = 1; // Dejemos creado un resultado por defecto
