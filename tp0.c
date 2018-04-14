@@ -6,9 +6,9 @@ int main() {
   wait_hello(socket);
   Alumno alumno = read_hello();
   send_hello(socket, alumno);
-  //void * content = wait_content(socket);
-  //send_md5(socket, content);
-  //wait_confirmation(socket);
+  void * content = wait_content(socket);
+  send_md5(socket, content);
+  wait_confirmation(socket);
   exit_gracefully(0);
 }
 
@@ -202,89 +202,154 @@ void send_hello(int socket, Alumno alumno) {
   else
 	  log_info(logger, "U FOKIN WOT M8");
 
-  close(socket);
-  log_info(logger, "Socket cerrado.");
+  //close(socket);
+  //log_info(logger, "Socket cerrado.");
 
   /*
     12.1. Recuerden que al salir tenemos que cerrar el socket (ademas de loggear)!
   */
 }
 
-//void * wait_content(int socket) {
-//  /*
-//    13.   Ahora tenemos que recibir un contenido de tamaño variable
-//          Para eso, primero tenemos que confirmar que el id corresponde al de una
-//          respuesta de contenido variable (18) y despues junto con el id de operacion
-//          vamos a haber recibido el tamaño del contenido que sigue. Por lo que:
-//  */
-//
-//  log_info(logger, "Esperando el encabezado del contenido(%ld bytes)", sizeof(ContentHeader));
-//  // 13.1. Reservamos el suficiente espacio para guardar un ContentHeader
-//  ContentHeader * header = { .id = 18, .len = sizeof(ContentHeader)};
-//
-//  // 13.2. Recibamos el header en la estructura y chequiemos si el id es el correcto.
-//  //      No se olviden de validar los errores, liberando memoria y cerrando el socket!
-//
-//  log_info(logger, "Esperando el contenido (%d bytes)", header->len);
-//
-//  /*
-//      14.   Ahora, recibamos el contenido variable. Ya tenemos el tamaño,
-//            por lo que reecibirlo es lo mismo que veniamos haciendo:
-//      14.1. Reservamos memoria
-//      14.2. Recibimos el contenido en un buffer (si hubo error, fallamos, liberamos y salimos
-//  */
-//
-//  /*
-//      15.   Finalmente, no te olvides de liberar la memoria que pedimos
-//            para el header y retornar el contenido recibido.
-//  */
-//}
-//
-//void send_md5(int socket, void * content) {
-//  /*
-//    16.   Ahora calculemos el MD5 del contenido, para eso vamos
-//          a armar el digest:
-//  */
-//
-//  void * digest = malloc(MD5_DIGEST_LENGTH);
-//  MD5_CTX context;
-//  MD5_Init(&context);
-//  MD5_Update(&context, content, strlen(content) + 1);
-//  MD5_Final(digest, &context);
-//
-//  free(content);
-//
-//  /*
-//    17.   Luego, nos toca enviar a nosotros un contenido variable.
-//          A diferencia de recibirlo, para mandarlo es mejor enviarlo todo de una,
-//          siguiendo la logida de 1 send - N recv.
-//          Asi que:
-//  */
-//
-//  //      17.1. Creamos un ContentHeader para guardar un mensaje de id 33 y el tamaño del md5
-//
-//  ContentHeader header = { /* 17.1. */ };
-//
-//  /*
-//          17.2. Creamos un buffer del tamaño del mensaje completo y copiamos el header y la info de "digest" allí.
-//          Recuerden revisar la función memcpy(ptr_destino, ptr_origen, tamaño)!
-//  */
-//
-//  /*
-//    18.   Con todo listo, solo nos falta enviar el paquete que armamos y liberar la memoria que usamos.
-//          Si, TODA la que usamos, eso incluye a la del contenido del mensaje que recibimos en la función
-//          anterior y el digest del MD5. Obviamente, validando tambien los errores.
-//  */
-//}
+void * wait_content(int socket) {
+  /*
+    13.   Ahora tenemos que recibir un contenido de tamaño variable
+          Para eso, primero tenemos que confirmar que el id corresponde al de una
+          respuesta de contenido variable (18) y despues junto con el id de operacion
+          vamos a haber recibido el tamaño del contenido que sigue. Por lo que:
+  */
+
+  log_info(logger, "Esperando el encabezado del contenido(%ld bytes)", sizeof(ContentHeader));
+  // 13.1. Reservamos el suficiente espacio para guardar un ContentHeader
+  ContentHeader * header = (ContentHeader*)malloc(sizeof(ContentHeader));
+
+  // 13.2. Recibamos el header en la estructura y chequiemos si el id es el correcto.
+  //      No se olviden de validar los errores, liberando memoria y cerrando el socket!
+
+  log_info(logger, "Esperando el contenido (%d bytes)", header->len);
+
+
+  int resultado = recv(socket, header, sizeof(ContentHeader), 0);
+
+    if(resultado == -1)
+  	  log_info(logger, "Error al recibir.");
+    else if(resultado == sizeof(ContentHeader))
+  	  log_info(logger, "Recibido OK");
+    else
+  	  log_info(logger, "U FOKIN WOT M8");
+
+    if (header->id != 18) {
+    	_exit_with_error(socket, "Id incorrecto, deberia ser 18", header);
+    }
+
+
+    log_info(logger, "Esperando el contenido (%d bytes)", header->len);
+
+    void * buf = calloc(sizeof(char), header->len + 1);
+
+    if (recv(socket, buf, header->len, MSG_WAITALL) <= 0) {
+        free(buf);
+        _exit_with_error(socket, "Error recibiendo el contenido", header);
+    }
+    log_info(logger, "Contenido recibido '%s'", (char*) buf);
+    free(header);
+    return buf;
+
+
+  /*
+      14.   Ahora, recibamos el contenido variable. Ya tenemos el tamaño,
+            por lo que reecibirlo es lo mismo que veniamos haciendo:
+      14.1. Reservamos memoria
+      14.2. Recibimos el contenido en un buffer (si hubo error, fallamos, liberamos y salimos
+  */
+
+  /*
+      15.   Finalmente, no te olvides de liberar la memoria que pedimos
+            para el header y retornar el contenido recibido.
+  */
+}
+
+
+void _exit_with_error(int socket, char* error_msg, void * buffer) {
+   if (buffer != NULL) {
+       free(buffer);
+   }
+   log_error(logger, error_msg);
+   close(socket);
+   exit_gracefully(1);
+}
+
+
+void send_md5(int socket, void * content) {
+  /*
+    16.   Ahora calculemos el MD5 del contenido, para eso vamos
+          a armar el digest:
+  */
+
+  void * digest = malloc(MD5_DIGEST_LENGTH);
+  MD5_CTX context;
+  MD5_Init(&context);
+  MD5_Update(&context, content, strlen(content) + 1);
+  MD5_Final(digest, &context);
+
+  free(content);
+
+  /*
+    17.   Luego, nos toca enviar a nosotros un contenido variable.
+          A diferencia de recibirlo, para mandarlo es mejor enviarlo todo de una,
+          siguiendo la logida de 1 send - N recv.
+          Asi que:
+  */
+
+  //      17.1. Creamos un ContentHeader para guardar un mensaje de id 33 y el tamaño del md5
+
+
+  ContentHeader header = { .id = 33, .len = MD5_DIGEST_LENGTH };
+  int message_size = sizeof(ContentHeader) + MD5_DIGEST_LENGTH;
+  void * buf = malloc(message_size);
+  memcpy(buf, &header, sizeof(ContentHeader));
+  memcpy(buf + sizeof(ContentHeader), digest, MD5_DIGEST_LENGTH);
+
+  log_info(logger, "Enviando MD5");
+  int result_send =  send(socket, buf, message_size, 0);
+  free(buf);
+
+  if (result_send <= 0) {
+      _exit_with_error(socket, "No se pudo enviar el md5", NULL);
+  }
+
+
+
+  /*
+          17.2. Creamos un buffer del tamaño del mensaje completo y copiamos el header y la info de "digest" allí.
+          Recuerden revisar la función memcpy(ptr_destino, ptr_origen, tamaño)!
+  */
+
+  /*
+    18.   Con todo listo, solo nos falta enviar el paquete que armamos y liberar la memoria que usamos.
+          Si, TODA la que usamos, eso incluye a la del contenido del mensaje que recibimos en la función
+          anterior y el digest del MD5. Obviamente, validando tambien los errores.
+  */
+}
 
 void wait_confirmation(int socket) {
-  int result = 1; // Dejemos creado un resultado por defecto
+  //int result = 1; // Dejemos creado un resultado por defecto
   /*
     19.   Ahora nos toca recibir la confirmacion del servidor.
           Si el resultado obvenido es distinto de 0, entonces hubo un error
   */
 
+  int result = 0;
+  log_info(logger, "Esperando confirmacion");
+
+  if (recv(socket, &result, sizeof(int), 0) <= 0) {
+      _exit_with_error(socket, "No se pudo recibir confirmacion", NULL);
+  }
+
+
+
   log_info(logger, "Los MD5 concidieron!");
+  close(socket);
+  exit_gracefully(0);
 }
 
 void exit_gracefully(int return_nr) {
@@ -293,4 +358,8 @@ void exit_gracefully(int return_nr) {
           Asi solo necesitamos destruir el logger y usar la llamada al
           sistema exit() para terminar la ejecucion
   */
+
+	log_destroy(logger);
+	  exit(return_nr);
+
 }

@@ -27,7 +27,7 @@
 #include <commons/collections/list.h>
 
 // Definimos algunas constantes para nuestro código
-#define IP "192.168.2.113"
+#define IP "tp0.utnso.com"
 #define PUERTO "8080"
 
 // Definimos algunas variables globales
@@ -56,4 +56,5 @@ void * wait_content(int socket);
 void send_md5(int socket, void * content);
 void wait_confirmation(int socket);
 void exit_gracefully(int return_nr);
+void _exit_with_error(int socket, char* error_msg, void * buffer);
 #endif /* CLIENTE_H_ */
